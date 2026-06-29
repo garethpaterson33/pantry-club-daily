@@ -3,552 +3,757 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pantry Club · Daily Intelligence</title>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
-<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<title>Pantry Club — Daily Performance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F0F4F8}
-  ::-webkit-scrollbar{width:6px;height:6px}
-  ::-webkit-scrollbar-track{background:#F1F5F9}
-  ::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+  :root {
+    --navy:  #1A2D5A;
+    --teal:  #0E7C86;
+    --amber: #C77C00;
+    --green: #1A6B35;
+    --red:   #B03020;
+    --light: #F4F6FA;
+    --white: #FFFFFF;
+    --border:#CDD3DC;
+    --text:  #1C2333;
+    --muted: #6B7385;
+    --blue-chip: #EBF3FC;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    background: var(--light);
+    color: var(--text);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  /* ── Password gate ── */
+  #gate {
+    position: fixed; inset: 0;
+    background: var(--navy);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+  }
+  .gate-box {
+    background: #fff; border-radius: 12px;
+    padding: 40px 44px; width: 360px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.35);
+    text-align: center;
+  }
+  .gate-logo {
+    font-size: 20px; font-weight: 800; color: var(--navy);
+    letter-spacing: -.4px; margin-bottom: 4px;
+  }
+  .gate-sub {
+    font-size: 11px; color: var(--muted); letter-spacing: .6px;
+    text-transform: uppercase; margin-bottom: 32px;
+  }
+  .gate-label {
+    display: block; text-align: left;
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    letter-spacing: .5px; text-transform: uppercase; margin-bottom: 6px;
+  }
+  .gate-input {
+    width: 100%; padding: 10px 14px; font-size: 14px;
+    border: 1.5px solid var(--border); border-radius: 7px;
+    outline: none; color: var(--text);
+    transition: border-color .15s;
+  }
+  .gate-input:focus { border-color: var(--teal); }
+  .gate-input.error { border-color: var(--red); animation: shake .3s; }
+  .gate-btn {
+    width: 100%; margin-top: 14px; padding: 11px;
+    background: var(--teal); color: #fff; border: none;
+    border-radius: 7px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background .15s;
+  }
+  .gate-btn:hover { background: #0A6870; }
+  .gate-err {
+    font-size: 11px; color: var(--red); margin-top: 10px;
+    min-height: 16px; font-weight: 600;
+  }
+  .gate-footer {
+    margin-top: 28px; font-size: 10px; color: #b0b8c8;
+    border-top: 1px solid var(--border); padding-top: 14px;
+  }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)}
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--navy); color: #fff;
+    padding: 0 24px; display: flex;
+    align-items: center; justify-content: space-between;
+    height: 52px; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-logo {
+    font-size: 17px; font-weight: 700; letter-spacing: -.3px;
+    border-right: 1px solid rgba(255,255,255,.25); padding-right: 14px;
+  }
+  .header-sub { font-size: 11px; color: rgba(255,255,255,.65); letter-spacing: .3px; text-transform: uppercase; }
+  .header-meta { font-size: 11px; color: rgba(255,255,255,.65); text-align: right; }
+  .header-meta strong { color: #fff; }
+  .header-logout {
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+    color: rgba(255,255,255,.8); border-radius: 5px;
+    padding: 4px 10px; font-size: 10px; cursor: pointer;
+    margin-left: 16px; letter-spacing: .4px; text-transform: uppercase;
+    transition: background .15s;
+  }
+  .header-logout:hover { background: rgba(255,255,255,.2); }
+
+  /* ── Layout ── */
+  .page { max-width: 1320px; margin: 0 auto; padding: 20px 20px 40px; }
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--muted);
+    margin: 24px 0 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── KPI Cards ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+  .kpi-card {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 18px;
+    position: relative; overflow: hidden;
+  }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 3px; background: var(--teal);
+  }
+  .kpi-label { font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .kpi-value { font-size: 22px; font-weight: 700; color: var(--navy); line-height: 1; }
+  .kpi-ly { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .kpi-footer { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .kpi-var { font-size: 12px; font-weight: 600; }
+  .kpi-var.pos { color: var(--green); }
+  .kpi-var.neg { color: var(--red); }
+  .kpi-var.neu { color: var(--muted); }
+  .kpi-var-label { font-size: 10px; color: var(--muted); }
+
+  /* ── Period band ── */
+  .period-band {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; border-radius: 6px;
+    margin-bottom: 10px; font-size: 11px; font-weight: 600;
+  }
+  .period-band.day { background: #E8F3FC; color: var(--navy); border: 1px solid #B8D4EE; }
+  .period-band.mtd { background: #E6F4F1; color: #0A5C52; border: 1px solid #A8D8D1; }
+
+  /* ── Stock band ── */
+  .stock-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+  .stock-card { background: var(--navy); color: #fff; border-radius: 7px; padding: 12px 16px; }
+  .stock-card.total-card { background: var(--teal); }
+  .stock-label { font-size: 10px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; opacity: .75; margin-bottom: 4px; }
+  .stock-value { font-size: 18px; font-weight: 700; }
+  .stock-sub { font-size: 10px; opacity: .65; margin-top: 2px; }
+
+  /* ── Segment split ── */
+  .seg-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .seg-card { background: var(--white); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .seg-head { padding: 8px 12px; font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: #fff; }
+  .seg-head.d2e { background: var(--teal); }
+  .seg-head.d2c { background: var(--amber); }
+  .seg-head.total { background: var(--navy); }
+  .seg-body { padding: 10px 12px; }
+  .seg-row { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; border-bottom: 1px solid var(--light); }
+  .seg-row:last-child { border-bottom: none; }
+  .seg-metric { font-size: 10px; color: var(--muted); }
+  .seg-vals { text-align: right; }
+  .seg-ty { font-size: 13px; font-weight: 700; color: var(--navy); }
+  .seg-pct { font-size: 10px; font-weight: 600; margin-left: 5px; }
+
+  /* ── Tables ── */
+  .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--navy); }
+  thead th {
+    padding: 9px 10px; font-size: 10px; font-weight: 700;
+    letter-spacing: .5px; text-transform: uppercase;
+    color: rgba(255,255,255,.9); text-align: right; white-space: nowrap;
+  }
+  thead th:first-child { text-align: left; padding-left: 14px; }
+  tbody tr { border-bottom: 1px solid var(--light); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #F7F9FC; }
+  tbody tr.total-row { background: var(--blue-chip); font-weight: 700; }
+  tbody tr.total-row td { border-top: 2px solid var(--border); }
+  tbody tr.sub-head td {
+    background: var(--teal); color: #fff;
+    font-size: 10px; font-weight: 700; letter-spacing: .6px;
+    text-transform: uppercase; padding: 5px 14px;
+  }
+  tbody tr.sub-head.d2c td { background: var(--amber); }
+  tbody tr.sub-head.other td { background: var(--muted); }
+  td { padding: 8px 10px; font-size: 12px; text-align: right; }
+  td:first-child { text-align: left; padding-left: 14px; color: var(--navy); font-weight: 500; }
+  .badge {
+    display: inline-block; font-size: 9px; font-weight: 700;
+    padding: 1px 5px; border-radius: 3px; letter-spacing: .3px;
+    text-transform: uppercase; margin-left: 4px;
+  }
+  .badge.d2e { background: #D0EFF1; color: var(--teal); }
+  .badge.d2c { background: #FEF0CC; color: var(--amber); }
+  .badge.new { background: #E8F3E8; color: var(--green); }
+  .badge.unc { background: var(--light); color: var(--muted); }
+  .pos { color: var(--green); font-weight: 600; }
+  .neg { color: var(--red); font-weight: 600; }
+  .neu { color: var(--muted); }
+  .rank { color: var(--muted); font-size: 11px; font-weight: 400; }
+
+  /* ── Chart ── */
+  .chart-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; }
+  .chart-title { font-size: 11px; font-weight: 700; color: var(--navy); margin-bottom: 12px; letter-spacing: .3px; }
+  canvas { max-height: 180px; }
+
+  /* ── Two-col ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* ── Coverage note ── */
+  .coverage-note {
+    background: #FFFBEB; border: 1px solid #F6D860;
+    border-radius: 6px; padding: 8px 12px;
+    font-size: 11px; color: #7D5C00; margin-bottom: 10px;
+  }
+
+  /* ── Data flag ── */
+  .data-flag {
+    background: #FFF8F0; border: 1px solid #F0C08A;
+    border-radius: 6px; padding: 8px 12px;
+    font-size: 11px; color: #7A4000; margin-top: 20px;
+    line-height: 1.7;
+  }
+
+  /* ── Loading ── */
+  .loading-screen {
+    position: fixed; inset: 0; background: var(--navy);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; color: #fff; gap: 16px;
+  }
+  .loading-title { font-size: 22px; font-weight: 700; }
+  .loading-sub { font-size: 13px; opacity: .65; }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.2);
+    border-top-color: var(--teal); border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .stock-grid { grid-template-columns: 1fr 1fr; }
+    .seg-grid { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .gate-box { width: 90%; padding: 28px 24px; }
+  }
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
-const { useState, useMemo, useEffect, useCallback } = React;
 
-/* ─── Icons ──────────────────────────────────────────────────────── */
-const Ico = ({children,size=16,color="currentColor",fill="none"}) =>
-  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>{children}</svg>;
+<!-- ══════════════════════════════════════════════
+     PASSWORD GATE
+     To change the password: update the value of
+     DASHBOARD_PASSWORD below (line ~230 in the <script>)
+     ══════════════════════════════════════════════ -->
+<div id="gate">
+  <div class="gate-box">
+    <div class="gate-logo">Pantry Club</div>
+    <div class="gate-sub">CAS Digital · Performance Dashboard</div>
+    <label class="gate-label" for="pwd-input">Password</label>
+    <input id="pwd-input" class="gate-input" type="password"
+           placeholder="Enter password" autocomplete="current-password">
+    <button class="gate-btn" id="pwd-btn">Access Dashboard</button>
+    <div class="gate-err" id="pwd-err"></div>
+    <div class="gate-footer">CAS Digital · CA&amp;S Group · Confidential</div>
+  </div>
+</div>
 
-const DownloadIcon = ({size,color}) => <Ico size={size} color={color}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Ico>;
-const ChevUp       = ({size,color}) => <Ico size={size} color={color}><polyline points="18 15 12 9 6 15"/></Ico>;
-const ChevDown     = ({size,color}) => <Ico size={size} color={color}><polyline points="6 9 12 15 18 9"/></Ico>;
-const DollarIcon   = ({size,color}) => <Ico size={size} color={color}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></Ico>;
-const PackageIcon  = ({size,color}) => <Ico size={size} color={color}><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></Ico>;
-const CartIcon     = ({size,color}) => <Ico size={size} color={color}><circle cx="9" cy="21" r="1" fill={color}/><circle cx="20" cy="21" r="1" fill={color}/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></Ico>;
-const ArchiveIcon  = ({size,color}) => <Ico size={size} color={color}><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></Ico>;
-const RefreshIcon  = ({size,color}) => <Ico size={size} color={color}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></Ico>;
+<!-- ══════════════════════════════════════════════ -->
+<div id="loading-screen" class="loading-screen" style="display:none">
+  <div class="spinner"></div>
+  <div class="loading-title">Pantry Club Dashboard</div>
+  <div class="loading-sub" id="loading-msg">Fetching latest data from GitHub…</div>
+</div>
 
-/* ─── Password ────────────────────────────────────────────────────────
-   Change PASSWORD below to update the access code, then re-upload index.html.
-   ──────────────────────────────────────────────────────────────────── */
-const PASSWORD     = "pantry2026";   // ← change this
-const SESSION_KEY  = "pc_auth_exp";
-const SESSION_DAYS = 7;
+<div id="app" style="display:none">
 
-const isSessionValid = () => {
-  try { const e=localStorage.getItem(SESSION_KEY); return e&&Date.now()<parseInt(e,10); }
-  catch { return false; }
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo">Pantry Club</div>
+      <div class="header-sub">CAS Digital · Daily Performance Dashboard</div>
+    </div>
+    <div style="display:flex;align-items:center">
+      <div class="header-meta">
+        Latest data: <strong id="hdr-latest-date">—</strong>
+        &nbsp;|&nbsp; MTD: <strong id="hdr-mtd-range">—</strong>
+      </div>
+      <button class="header-logout" id="logout-btn">Sign out</button>
+    </div>
+  </div>
+
+  <div class="page">
+
+    <div class="section-label">Latest Day</div>
+    <div class="period-band day" id="day-band">◉ Loading…</div>
+    <div class="kpi-grid" id="day-kpis"></div>
+
+    <div class="section-label">Month to Date</div>
+    <div class="period-band mtd" id="mtd-band">◉ Loading…</div>
+    <div class="kpi-grid" id="mtd-kpis"></div>
+
+    <div class="section-label">Stock on Hand (Latest Day)</div>
+    <div class="stock-grid" id="stock-cards"></div>
+
+    <div class="section-label">6-Month Revenue Trend &amp; Segment Split (MTD)</div>
+    <div class="two-col">
+      <div class="chart-wrap">
+        <div class="chart-title">Monthly Revenue — TY vs LY (ZAR)</div>
+        <canvas id="trend-chart"></canvas>
+      </div>
+      <div id="seg-split"></div>
+    </div>
+
+    <div class="section-label">Channel Performance — MTD</div>
+    <div class="table-wrap"><table id="channel-table"></table></div>
+
+    <div class="section-label">
+      Brand &amp; Item Performance — MTD
+      (Top 1 000 Items · ~<span id="coverage-pct">—</span>% Revenue Coverage)
+    </div>
+    <div class="coverage-note">
+      <strong>Coverage note:</strong> Brand and item data is sourced from the top 1 000 items file,
+      covering ~<strong id="coverage-note-pct">—</strong>% of total MTD revenue and
+      ~<strong id="coverage-note-uni">—</strong>% of total MTD units.
+      Remaining revenue sits in the long-tail not captured in this file.
+    </div>
+    <div class="two-col">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px;">Top 20 Brands by Revenue</div>
+        <div class="table-wrap"><table id="brand-table"></table></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px;">Top 25 Items by Revenue</div>
+        <div class="table-wrap"><table id="items-table"></table></div>
+      </div>
+    </div>
+
+    <div class="data-flag" id="data-notes"></div>
+
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+//  ▶  SET YOUR PASSWORD HERE
+// ════════════════════════════════════════════════════════════════════════════
+const DASHBOARD_PASSWORD = 'PantryClub2026';
+// ════════════════════════════════════════════════════════════════════════════
+
+//  ▶  GitHub raw CSV paths — update GITHUB_BASE if you rename your repo
+//     Format: https://raw.githubusercontent.com/USERNAME/REPO/BRANCH/
+//     Leave as './' if you are serving locally or via a basic static host.
+const GITHUB_BASE = './';   // ← change to raw GitHub URL if needed
+const CSV = {
+  total:    GITHUB_BASE + 'total.csv',
+  channels: GITHUB_BASE + 'channels.csv',
+  items:    GITHUB_BASE + 'items.csv',
 };
-const saveSession = () => {
-  try { localStorage.setItem(SESSION_KEY,(Date.now()+SESSION_DAYS*864e5).toString()); }
-  catch {}
-};
 
-/* ─── Config ──────────────────────────────────────────────────────── */
-const C = {
-  navy:"#0F2044", teal:"#0D9488",
-  bg:"#F0F4F8", card:"#FFFFFF", border:"#E2E8F0",
-  text:"#1E293B", muted:"#64748B", faint:"#94A3B8",
-  pos:"#16A34A", neg:"#DC2626", stripe:"#F8FAFC",
-};
-const D2E = new Set(["Tiger Trolley","Adcock Shop","RCL Shop","Clover","Pepsico","Pepsico Partners","Godrej","Futurelife","Sondla","Lucky Star Foods","Purity Shop","Jungle Oats","SiyaStocka"]);
-const PERIODS = [{key:"day",label:"Yesterday"},{key:"week",label:"Last 7 Days"},{key:"mtd",label:"MTD"},{key:"ytd",label:"YTD"}];
-const FMT_R='"R"#,##0', FMT_R2='"R"#,##0.00', FMT_N="#,##0", FMT_PCT='0.0%;-0.0%;"-"';
+// ── Auth ──────────────────────────────────────────────────────────────────
+const SESSION_KEY = 'pc_dashboard_auth';
 
-// ★ These are the ONLY filenames that need to be uploaded to GitHub each morning
-const CSV = { total:"total.csv", site:"channels.csv", items:"items.csv" };
+function isAuthenticated() {
+  return sessionStorage.getItem(SESSION_KEY) === 'ok';
+}
 
-/* ─── Helpers ─────────────────────────────────────────────────────── */
-const gPct   = (ty,ly) => (ly&&ly!==0?((ty-ly)/Math.abs(ly))*100:null);
-const fmtR   = (n) => n==null?"—":`R${Math.round(n).toLocaleString("en-US")}`;
-const fmtN   = (n) => n==null?"—":Math.round(n).toLocaleString("en-US");
-const fmtPct = (n) => n===null?"—":`${n>=0?"+":""}${n.toFixed(1)}%`;
-const pColor = (n) => n===null?C.faint:n>0?C.pos:n<0?C.neg:C.faint;
-const applyFmt=(ws,cell,fmt)=>{ if(ws[cell]) ws[cell].z=fmt; };
-const applyFmtRange=(ws,cols,sr,er,fmt)=>{ for(let r=sr;r<=er;r++) cols.forEach(c=>applyFmt(ws,`${c}${r}`,fmt)); };
+function authenticate(pwd) {
+  if (pwd === DASHBOARD_PASSWORD) {
+    sessionStorage.setItem(SESSION_KEY, 'ok');
+    return true;
+  }
+  return false;
+}
 
-/* ─── App ─────────────────────────────────────────────────────────── */
+function signOut() {
+  sessionStorage.removeItem(SESSION_KEY);
+  location.reload();
+}
 
-/* ─── Password screen ─────────────────────────────────────────────────
-   Change PASSWORD at the top of this file to update the access code.
-   Users are remembered for 7 days so Mark only types it once a week.
-   ──────────────────────────────────────────────────────────────────── */
-function LoginScreen({onSuccess}) {
-  const [pw,  setPw]  = useState("");
-  const [err, setErr] = useState(false);
-  const [shake, setShake] = useState(false);
+// ── Boot ──────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (isAuthenticated()) {
+    showLoading();
+    loadDashboard();
+    return;
+  }
 
-  const attempt = () => {
-    if(pw === PASSWORD) { saveSession(); onSuccess(); }
-    else {
-      setErr(true); setShake(true); setPw("");
-      setTimeout(()=>setShake(false), 450);
+  // Wire up gate
+  const input = document.getElementById('pwd-input');
+  const btn   = document.getElementById('pwd-btn');
+  const err   = document.getElementById('pwd-err');
+
+  function attempt() {
+    err.textContent = '';
+    if (authenticate(input.value.trim())) {
+      showLoading();
+      loadDashboard();
+    } else {
+      input.classList.add('error');
+      err.textContent = 'Incorrect password. Please try again.';
+      input.value = '';
+      setTimeout(() => input.classList.remove('error'), 400);
+      input.focus();
     }
-  };
+  }
 
-  return (
-    <div style={{minHeight:"100vh",background:C.navy,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem"}}>
-      <div style={{marginBottom:"2rem",textAlign:"center"}}>
-        <div style={{fontSize:"0.62rem",letterSpacing:"0.2em",color:C.teal,fontWeight:700,textTransform:"uppercase",marginBottom:"0.6rem"}}>CAS Digital</div>
-        <div style={{fontSize:"1.7rem",fontWeight:800,color:"#FFF",letterSpacing:"-0.02em"}}>Pantry Club</div>
-        <div style={{fontSize:"0.85rem",color:"#94A3B8",marginTop:"0.3rem"}}>Daily Intelligence Report</div>
-      </div>
-      <div style={{
-        background:"rgba(255,255,255,0.05)",border:`1.5px solid ${err?"#EF4444":"rgba(255,255,255,0.12)"}`,
-        borderRadius:"14px",padding:"2rem",width:"100%",maxWidth:"320px",
-        transition:"border-color 0.2s",
-        animation:shake?"shake 0.4s ease":"none",
-      }}>
-        <label style={{fontSize:"0.7rem",fontWeight:700,color:"#94A3B8",textTransform:"uppercase",letterSpacing:"0.1em",display:"block",marginBottom:"0.5rem"}}>
-          Access code
-        </label>
-        <input
-          type="password"
-          value={pw}
-          onChange={e=>{setPw(e.target.value);setErr(false);}}
-          onKeyDown={e=>e.key==="Enter"&&attempt()}
-          placeholder="Enter password"
-          autoFocus
-          style={{
-            width:"100%",padding:"0.72rem 1rem",borderRadius:"8px",fontSize:"1rem",
-            border:`1.5px solid ${err?"#EF4444":"rgba(255,255,255,0.18)"}`,
-            background:"rgba(255,255,255,0.07)",color:"#FFF",outline:"none",
-            marginBottom:err?"0.5rem":"0.9rem",letterSpacing:"0.12em",
-            transition:"border-color 0.2s",
-          }}
-        />
-        {err&&<div style={{fontSize:"0.75rem",color:"#FCA5A5",marginBottom:"0.75rem",textAlign:"center"}}>Incorrect password — try again</div>}
-        <button
-          onClick={attempt}
-          style={{width:"100%",padding:"0.72rem",borderRadius:"8px",border:"none",cursor:"pointer",
-            fontWeight:700,fontSize:"0.85rem",background:C.teal,color:"#FFF",letterSpacing:"0.03em"}}
-        >
-          Access report
-        </button>
-      </div>
-      <div style={{marginTop:"1.5rem",fontSize:"0.68rem",color:"rgba(255,255,255,0.18)",textAlign:"center"}}>
-        Authorised users only &middot; CAS Digital &copy; {new Date().getFullYear()}
-      </div>
-      <style>{`@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-5px)}}`}</style>
-    </div>
-  );
+  btn.addEventListener('click', attempt);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
+  input.focus();
+});
+
+document.getElementById('logout-btn').addEventListener('click', signOut);
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function showLoading() {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('loading-screen').style.display = 'flex';
 }
 
-function App() {
-  const [authed,    setAuthed]    = useState(isSessionValid);
-  const [data,      setData]      = useState({total:null,site:null,items:null});
-  const [status,    setStatus]    = useState("loading");  // loading | ready | error
-  const [period,    setPeriod]    = useState("day");
-  const [sort,      setSort]      = useState({key:"rev_ty",dir:"desc"});
-  const [exporting, setExporting] = useState(false);
+const D2E = new Set([
+  'Tiger Trolley','Adcock Shop','RCL Shop','Clover','Pepsico','Godrej',
+  'Futurelife','Sondla','Lucky Star Foods','Purity Shop','Jungle Oats','SiyaStocka'
+]);
+const D2C = new Set(['Grocery Club']);
+function segOf(n) { return D2E.has(n)?'D2E': D2C.has(n)?'D2C':'Other'; }
 
-  // Gate: show login until authenticated
-  if(!authed) return <LoginScreen onSuccess={()=>setAuthed(true)}/>;
-
-  /* ── Fetch CSVs from relative paths (works on GitHub Pages) ─────── */
-  useEffect(()=>{
-    let loaded = 0;
-    const detect = fields => {
-      if(fields.includes("stock_value_jhb_this_year")) return "total";
-      if(fields.includes("site_name"))                 return "site";
-      if(fields.includes("product_id"))                return "items";
-      return null;
-    };
-    Promise.allSettled(
-      Object.entries(CSV).map(([type, filename]) =>
-        fetch(`${filename}?v=${Date.now()}`, {cache:"no-store"})
-          .then(r=>{ if(!r.ok) throw new Error(`${filename} not found`); return r.text(); })
-          .then(text=>new Promise(resolve=>{
-            Papa.parse(text,{header:true,dynamicTyping:true,skipEmptyLines:true,
-              complete:({data:rows,meta})=>{
-                const t=detect(meta.fields||[])||type;
-                setData(p=>({...p,[t]:rows}));
-                loaded++;
-                resolve();
-              }
-            });
-          }))
-      )
-    ).then(()=>{ setStatus(loaded>=2?"ready":"error"); });
-  },[]);
-
-  /* ─── Date logic ─────────────────────────────────────────────────── */
-  const lastDay = useMemo(()=>{
-    if(!data.total) return null;
-    const today=new Date().toISOString().split("T")[0];
-    return data.total.filter(r=>(r.revenue_this_year||0)>10000&&r.date<today).map(r=>r.date).sort().reverse()[0]||null;
-  },[data.total]);
-
-  const dates = useMemo(()=>{
-    if(!lastDay||!data.total) return [];
-    const end=new Date(lastDay+"T12:00:00"),yr=end.getFullYear(),mo=end.getMonth();
-    if(period==="day")  return [lastDay];
-    if(period==="week") return Array.from({length:7},(_,i)=>{ const d=new Date(end); d.setDate(d.getDate()-i); return d.toISOString().split("T")[0]; });
-    if(period==="mtd")  return data.total.filter(r=>{ const d=new Date(r.date+"T12:00:00"); return d.getFullYear()===yr&&d.getMonth()===mo&&r.date<=lastDay&&(r.revenue_this_year||0)>0; }).map(r=>r.date);
-    if(period==="ytd")  return data.total.filter(r=>{ const d=new Date(r.date+"T12:00:00"); return d.getFullYear()===yr&&r.date<=lastDay&&(r.revenue_this_year||0)>0; }).map(r=>r.date);
-    return [];
-  },[lastDay,period,data.total]);
-
-  const periodLabel = useMemo(()=>{
-    if(!lastDay) return "";
-    const end=new Date(lastDay+"T12:00:00");
-    const s=d=>d.toLocaleDateString("en-ZA",{day:"numeric",month:"short"});
-    if(period==="day")  return end.toLocaleDateString("en-ZA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-    if(period==="week") { const f=new Date(end); f.setDate(f.getDate()-6); return `${s(f)} – ${s(end)} ${end.getFullYear()} · Last 7 Days`; }
-    if(period==="mtd")  { const f=new Date(end.getFullYear(),end.getMonth(),1); return `${end.toLocaleDateString("en-ZA",{month:"long",year:"numeric"})} · Month to Date (${s(f)} – ${s(end)})`; }
-    if(period==="ytd")  { const j=new Date(end.getFullYear(),0,1); return `${end.getFullYear()} Year to Date · ${s(j)} – ${end.toLocaleDateString("en-ZA",{day:"numeric",month:"long",year:"numeric"})}`; }
-    return "";
-  },[lastDay,period]);
-
-  const kpis = useMemo(()=>{
-    if(!data.total||!dates.length) return null;
-    const rows=data.total.filter(r=>dates.includes(r.date));
-    const S=k=>rows.reduce((a,r)=>a+(r[k]||0),0);
-    const snap=data.total.find(r=>r.date===lastDay)||{};
-    return {
-      rev_ty:S("revenue_this_year"),rev_ly:S("revenue_last_year"),
-      ord_ty:S("orders_this_year"),ord_ly:S("orders_last_year"),
-      stock_ty:snap.stock_value_total_this_year||0,stock_ly:snap.stock_value_total_last_year||0,
-      jhb:snap.stock_value_jhb_this_year||0,dbn:snap.stock_value_dbn_this_year||0,cpt:snap.stock_value_cpt_this_year||0,
-    };
-  },[data.total,dates,lastDay]);
-
-  const units = useMemo(()=>{
-    if(!data.items||!dates.length) return {ty:0,ly:0};
-    const rows=data.items.filter(r=>dates.includes(r.date));
-    return {ty:rows.reduce((a,r)=>a+(r.units_sold_this_year||0),0),ly:rows.reduce((a,r)=>a+(r.units_sold_last_year||0),0)};
-  },[data.items,dates]);
-
-  const channels = useMemo(()=>{
-    if(!data.site||!dates.length) return {rows:[],d2eSub:null,d2cSub:null};
-    const rows=data.site.filter(r=>dates.includes(r.date)),map={};
-    rows.forEach(r=>{
-      if(!map[r.site_name]) map[r.site_name]={site:r.site_name,rev_ty:0,rev_ly:0,ord_ty:0,ord_ly:0,isD2E:D2E.has(r.site_name)};
-      map[r.site_name].rev_ty+=r.revenue_this_year||0; map[r.site_name].rev_ly+=r.revenue_last_year||0;
-      map[r.site_name].ord_ty+=r.orders_this_year||0;  map[r.site_name].ord_ly+=r.orders_last_year||0;
-    });
-    const all=Object.values(map).sort((a,b)=>b.rev_ty-a.rev_ty);
-    const sub=arr=>arr.reduce((a,r)=>({rev_ty:a.rev_ty+r.rev_ty,rev_ly:a.rev_ly+r.rev_ly,ord_ty:a.ord_ty+r.ord_ty,ord_ly:a.ord_ly+r.ord_ly}),{rev_ty:0,rev_ly:0,ord_ty:0,ord_ly:0});
-    return {rows:all,d2eSub:sub(all.filter(r=>r.isD2E)),d2cSub:sub(all.filter(r=>!r.isD2E))};
-  },[data.site,dates]);
-
-  const items = useMemo(()=>{
-    if(!data.items||!dates.length) return [];
-    const rows=data.items.filter(r=>dates.includes(r.date)),map={};
-    rows.forEach(r=>{
-      if(!map[r.product_id]) map[r.product_id]={id:r.product_id,name:r.product_name,brand:r.brand,rev_ty:0,rev_ly:0,units_ty:0,units_ly:0};
-      map[r.product_id].rev_ty+=r.revenue_this_year||0; map[r.product_id].rev_ly+=r.revenue_last_year||0;
-      map[r.product_id].units_ty+=r.units_sold_this_year||0; map[r.product_id].units_ly+=r.units_sold_last_year||0;
-    });
-    return Object.values(map)
-      .map(r=>({...r,rev_pct:gPct(r.rev_ty,r.rev_ly),units_pct:gPct(r.units_ty,r.units_ly)}))
-      .sort((a,b)=>sort.dir==="desc"?(b[sort.key]??-Infinity)-(a[sort.key]??-Infinity):(a[sort.key]??-Infinity)-(b[sort.key]??-Infinity));
-  },[data.items,dates,sort]);
-
-  const toggleSort = key=>setSort(s=>({key,dir:s.key===key&&s.dir==="desc"?"asc":"desc"}));
-  const aov_ty=kpis?.ord_ty?kpis.rev_ty/kpis.ord_ty:0;
-  const aov_ly=kpis?.ord_ly?kpis.rev_ly/kpis.ord_ly:0;
-
-  /* ── Excel export ─────────────────────────────────────────────────── */
-  const exportExcel = useCallback(()=>{
-    if(!kpis) return;
-    setExporting(true);
-    try {
-      const wb=XLSX.utils.book_new();
-      const ds=new Date().toISOString().split("T")[0];
-      const pt={day:"Daily",week:"7Day",mtd:"MTD",ytd:"YTD"}[period];
-      const pD=n=>n===null?null:n/100;
-      const gd=new Date().toLocaleDateString("en-ZA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-
-      const s1=[
-        ["PANTRY CLUB DAILY INTELLIGENCE REPORT"],[periodLabel],[`Generated: ${gd}`],[""],
-        ["BUSINESS PERFORMANCE SUMMARY"],
-        ["Metric","This Year","Last Year","vs Last Year"],
-        ["Sales Revenue",kpis.rev_ty,kpis.rev_ly,pD(gPct(kpis.rev_ty,kpis.rev_ly))],
-        ["Number of Orders",kpis.ord_ty,kpis.ord_ly,pD(gPct(kpis.ord_ty,kpis.ord_ly))],
-        ["Average Order Value (AOV)",aov_ty,aov_ly,pD(gPct(aov_ty,aov_ly))],
-        ["Units Sold *",units.ty,units.ly,pD(gPct(units.ty,units.ly))],[""],
-        ["STOCK HOLDINGS (Latest Warehouse Snapshot)"],
-        ["Location","Value TY (ZAR)","Value LY (ZAR)","vs Last Year"],
-        ["Total — All DCs",kpis.stock_ty,kpis.stock_ly,pD(gPct(kpis.stock_ty,kpis.stock_ly))],
-        ["Johannesburg (JHB)",kpis.jhb,null,null],["Durban (DBN)",kpis.dbn,null,null],["Cape Town (CPT)",kpis.cpt,null,null],[""],
-        ["* Units reflect top 100 SKUs only (~28.5% of total revenue)."],
-      ];
-      const ws1=XLSX.utils.aoa_to_sheet(s1);
-      ws1["!cols"]=[{wch:34},{wch:20},{wch:20},{wch:16}];
-      applyFmtRange(ws1,["B","C"],7,9,FMT_R2); applyFmtRange(ws1,["D"],7,10,FMT_PCT);
-      applyFmt(ws1,"B8",FMT_N);applyFmt(ws1,"C8",FMT_N);applyFmt(ws1,"B10",FMT_N);applyFmt(ws1,"C10",FMT_N);
-      applyFmtRange(ws1,["B","C"],14,17,FMT_R);applyFmt(ws1,"D14",FMT_PCT);
-      XLSX.utils.book_append_sheet(wb,ws1,"Summary");
-
-      const cR=[
-        [`CHANNEL PERFORMANCE — ${periodLabel}`],[""],
-        ["Segment","Channel","Revenue TY","Revenue LY","Rev vs LY","Orders TY","Orders LY","Ord vs LY","AOV TY","AOV LY"],
-        ["TOTAL","ALL CHANNELS",kpis.rev_ty,kpis.rev_ly,pD(gPct(kpis.rev_ty,kpis.rev_ly)),kpis.ord_ty,kpis.ord_ly,pD(gPct(kpis.ord_ty,kpis.ord_ly)),aov_ty,aov_ly],
-        [""],["","— D2E EMPLOYEE SHOPS —","","","","","","","",""],
-      ];
-      channels.rows.filter(r=>r.isD2E).forEach(r=>{const a=r.ord_ty?r.rev_ty/r.ord_ty:0,al=r.ord_ly?r.rev_ly/r.ord_ly:0;cR.push(["D2E",r.site,r.rev_ty,r.rev_ly,pD(gPct(r.rev_ty,r.rev_ly)),r.ord_ty,r.ord_ly,pD(gPct(r.ord_ty,r.ord_ly)),a,al]);});
-      if(channels.d2eSub){const a=channels.d2eSub.ord_ty?channels.d2eSub.rev_ty/channels.d2eSub.ord_ty:0,al=channels.d2eSub.ord_ly?channels.d2eSub.rev_ly/channels.d2eSub.ord_ly:0;cR.push(["D2E","D2E SUBTOTAL",channels.d2eSub.rev_ty,channels.d2eSub.rev_ly,pD(gPct(channels.d2eSub.rev_ty,channels.d2eSub.rev_ly)),channels.d2eSub.ord_ty,channels.d2eSub.ord_ly,pD(gPct(channels.d2eSub.ord_ty,channels.d2eSub.ord_ly)),a,al]);}
-      cR.push([""]);cR.push(["","— D2C CONSUMER (GROCERY CLUB) —","","","","","","","",""]);
-      channels.rows.filter(r=>!r.isD2E).forEach(r=>{const a=r.ord_ty?r.rev_ty/r.ord_ty:0,al=r.ord_ly?r.rev_ly/r.ord_ly:0;cR.push(["D2C",r.site,r.rev_ty,r.rev_ly,pD(gPct(r.rev_ty,r.rev_ly)),r.ord_ty,r.ord_ly,pD(gPct(r.ord_ty,r.ord_ly)),a,al]);});
-      if(channels.d2cSub){const a=channels.d2cSub.ord_ty?channels.d2cSub.rev_ty/channels.d2cSub.ord_ty:0,al=channels.d2cSub.ord_ly?channels.d2cSub.rev_ly/channels.d2cSub.ord_ly:0;cR.push(["D2C","D2C SUBTOTAL",channels.d2cSub.rev_ty,channels.d2cSub.rev_ly,pD(gPct(channels.d2cSub.rev_ty,channels.d2cSub.rev_ly)),channels.d2cSub.ord_ty,channels.d2cSub.ord_ly,pD(gPct(channels.d2cSub.ord_ty,channels.d2cSub.ord_ly)),a,al]);}
-      const ws2=XLSX.utils.aoa_to_sheet(cR);
-      ws2["!cols"]=[{wch:9},{wch:26},{wch:16},{wch:16},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:14}];
-      ws2["!freeze"]={xSplit:0,ySplit:3};
-      applyFmtRange(ws2,["C","D"],4,cR.length,FMT_R);applyFmtRange(ws2,["E"],4,cR.length,FMT_PCT);
-      applyFmtRange(ws2,["F","G"],4,cR.length,FMT_N);applyFmtRange(ws2,["H"],4,cR.length,FMT_PCT);
-      applyFmtRange(ws2,["I","J"],4,cR.length,FMT_R2);
-      XLSX.utils.book_append_sheet(wb,ws2,"By Channel");
-
-      const iR=[[`TOP 100 ITEMS — ${periodLabel}`],[""],["Rank","Product","Brand","Revenue TY","Revenue LY","Rev vs LY","Units TY","Units LY","Units vs LY"]];
-      items.forEach((item,idx)=>iR.push([idx+1,item.name,item.brand,item.rev_ty,item.rev_ly,pD(item.rev_pct),item.units_ty,item.units_ly,pD(item.units_pct)]));
-      const ws3=XLSX.utils.aoa_to_sheet(iR);
-      ws3["!cols"]=[{wch:6},{wch:44},{wch:18},{wch:14},{wch:14},{wch:12},{wch:12},{wch:12},{wch:12}];
-      ws3["!freeze"]={xSplit:0,ySplit:3};
-      applyFmtRange(ws3,["D","E"],4,iR.length,FMT_R);applyFmtRange(ws3,["F"],4,iR.length,FMT_PCT);
-      applyFmtRange(ws3,["G","H"],4,iR.length,FMT_N);applyFmtRange(ws3,["I"],4,iR.length,FMT_PCT);
-      XLSX.utils.book_append_sheet(wb,ws3,"Top 100 Items");
-      XLSX.writeFile(wb,`PantryClub_${pt}_${ds}.xlsx`);
-    } finally { setExporting(false); }
-  },[kpis,channels,items,units,period,periodLabel,aov_ty,aov_ly]);
-
-  /* ─── Loading screen ─────────────────────────────────────────────── */
-  if(status==="loading") return (
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"1.5rem"}}>
-      <div style={{textAlign:"center"}}>
-        <div style={{fontSize:"0.62rem",letterSpacing:"0.15em",color:C.teal,fontWeight:700,textTransform:"uppercase",marginBottom:"0.5rem"}}>CAS Digital · Pantry Club</div>
-        <div style={{fontSize:"1.2rem",fontWeight:800,color:C.navy}}>Daily Intelligence Report</div>
-      </div>
-      <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-        {[0,1,2].map(i=><div key={i} style={{width:"10px",height:"10px",borderRadius:"50%",background:C.teal,animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite`}}/>)}
-      </div>
-      <div style={{fontSize:"0.8rem",color:C.muted}}>Loading today's data…</div>
-    </div>
-  );
-
-  /* ─── Error screen (files not found) ────────────────────────────── */
-  if(status==="error") return (
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"1rem",padding:"2rem"}}>
-      <div style={{textAlign:"center"}}>
-        <div style={{fontSize:"0.62rem",letterSpacing:"0.15em",color:C.teal,fontWeight:700,textTransform:"uppercase",marginBottom:"0.5rem"}}>CAS Digital · Pantry Club</div>
-        <div style={{fontSize:"1.2rem",fontWeight:800,color:C.navy,marginBottom:"0.5rem"}}>Daily Intelligence Report</div>
-      </div>
-      <div style={{background:"#FFF",border:`1px solid ${C.border}`,borderRadius:"12px",padding:"2rem 2.5rem",textAlign:"center",maxWidth:"440px"}}>
-        <div style={{fontSize:"2rem",marginBottom:"0.75rem"}}>📊</div>
-        <div style={{fontWeight:700,color:C.navy,fontSize:"0.95rem",marginBottom:"0.5rem"}}>Today's data is being prepared</div>
-        <div style={{fontSize:"0.82rem",color:C.muted,lineHeight:1.6}}>The report will be available shortly. Please check back in a few minutes or refresh the page.</div>
-        <button onClick={()=>window.location.reload()} style={{marginTop:"1.25rem",padding:"0.5rem 1.25rem",borderRadius:"8px",border:"none",background:C.teal,color:"#FFF",fontWeight:700,fontSize:"0.8rem",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px"}}>
-          <RefreshIcon size={13} color="#FFF"/> Refresh
-        </button>
-      </div>
-    </div>
-  );
-
-  /* ─── Sub-components ─────────────────────────────────────────────── */
-  const KpiCard = ({label,ty,ly,Icon:Ic,sub,note,fmt="currency"}) => {
-    const p=gPct(ty,ly),col=pColor(p),disp=fmt==="currency"?fmtR:fmtN;
-    return (
-      <div style={{flex:1,minWidth:"190px",background:C.card,padding:"1rem 1.2rem",borderTop:`3px solid ${col}`,border:`1px solid ${C.border}`,borderTopWidth:"3px",borderRadius:"0 0 8px 8px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.55rem"}}>
-          <span style={{fontSize:"0.62rem",fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>{label}</span>
-          <Ic size={14} color={C.faint}/>
-        </div>
-        <div style={{fontSize:"1.55rem",fontWeight:800,color:C.text,lineHeight:1}}>{disp(ty)}</div>
-        {sub&&<div style={{fontSize:"0.72rem",color:C.muted,marginTop:"0.2rem"}}>{sub}</div>}
-        <div style={{marginTop:"0.4rem",display:"flex",gap:"0.4rem",alignItems:"center",flexWrap:"wrap"}}>
-          <span style={{fontSize:"0.72rem",color:C.muted}}>vs {disp(ly)} LY</span>
-          <span style={{fontSize:"0.77rem",fontWeight:700,color:col}}>{fmtPct(p)}</span>
-        </div>
-        {note&&<div style={{fontSize:"0.62rem",color:C.faint,marginTop:"0.25rem"}}>{note}</div>}
-      </div>
-    );
-  };
-
-  const CRow = ({row,variant="normal"}) => {
-    const rp=gPct(row.rev_ty,row.rev_ly),op=gPct(row.ord_ty,row.ord_ly);
-    const isT=variant==="total",isS=variant==="sub";
-    const bg=isT?C.navy:isS?"#EEF2F7":"transparent";
-    const tc=isT?"#FFF":C.text,mc=isT?"#94A3B8":C.muted,fw=isT||isS?700:400;
-    const gc=p=>p===null?mc:p>0?(isT?"#86EFAC":C.pos):(isT?"#FCA5A5":C.neg);
-    return (
-      <tr style={{background:bg,borderBottom:`1px solid ${isT?"rgba(255,255,255,0.08)":C.border}`}}>
-        <td style={{padding:"0.52rem 1rem",fontSize:"0.78rem",color:tc,fontWeight:fw}}>
-          {variant==="normal"&&<span style={{fontSize:"0.58rem",padding:"2px 5px",borderRadius:"8px",background:row.isD2E?"#EFF6FF":"#F0FDF4",color:row.isD2E?"#2563EB":"#16A34A",fontWeight:700,marginRight:"0.45rem"}}>{row.isD2E?"D2E":"D2C"}</span>}
-          {row.site}
-        </td>
-        <td style={{padding:"0.52rem 0.75rem",textAlign:"right",fontSize:"0.78rem",color:tc,fontWeight:fw}}>{fmtR(row.rev_ty)}</td>
-        <td style={{padding:"0.52rem 0.75rem",textAlign:"right",fontSize:"0.75rem",color:mc}}>{fmtR(row.rev_ly)}</td>
-        <td style={{padding:"0.52rem 0.75rem",textAlign:"right",fontSize:"0.78rem",fontWeight:700,color:gc(rp)}}>{fmtPct(rp)}</td>
-        <td style={{padding:"0.52rem 0.75rem",textAlign:"right",fontSize:"0.78rem",color:tc,fontWeight:fw}}>{fmtN(row.ord_ty)}</td>
-        <td style={{padding:"0.52rem 0.75rem",textAlign:"right",fontSize:"0.75rem",color:mc}}>{fmtN(row.ord_ly)}</td>
-        <td style={{padding:"0.52rem 0.75rem",textAlign:"right",fontSize:"0.78rem",fontWeight:700,color:gc(op)}}>{fmtPct(op)}</td>
-      </tr>
-    );
-  };
-
-  const SortCaret=({k})=>sort.key===k?(sort.dir==="desc"?<ChevDown size={11} color={C.teal}/>:<ChevUp size={11} color={C.teal}/>):<ChevUp size={11} color={C.faint}/>;
-
-  const TH=({label,k,align="right"})=>(
-    <th onClick={()=>k&&toggleSort(k)} style={{padding:"0.52rem 0.75rem",textAlign:align,fontSize:"0.62rem",fontWeight:700,color:sort.key===k?C.teal:C.muted,textTransform:"uppercase",letterSpacing:"0.05em",cursor:k?"pointer":"default",userSelect:"none",whiteSpace:"nowrap",background:"#F8FAFC"}}>
-      <span style={{display:"flex",alignItems:"center",justifyContent:align==="left"?"flex-start":"flex-end",gap:"2px"}}>{label}{k&&<SortCaret k={k}/>}</span>
-    </th>
-  );
-
-  const d2eRows=channels.rows.filter(r=>r.isD2E), d2cRows=channels.rows.filter(r=>!r.isD2E);
-
-  /* ─── Dashboard ──────────────────────────────────────────────────── */
-  return (
-    <div style={{minHeight:"100vh",background:C.bg}}>
-
-      {/* Header */}
-      <div style={{background:C.navy,padding:"0.9rem 1.75rem",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"0.75rem"}}>
-        <div>
-          <div style={{fontSize:"0.58rem",letterSpacing:"0.15em",color:C.teal,fontWeight:700,textTransform:"uppercase"}}>CAS Digital · Pantry Club</div>
-          <div style={{fontSize:"1.1rem",fontWeight:800,color:"#FFF",marginTop:"2px"}}>Daily Intelligence Report</div>
-          <div style={{fontSize:"0.7rem",color:"#94A3B8",marginTop:"2px"}}>{periodLabel}</div>
-        </div>
-        <div style={{display:"flex",gap:"0.5rem",alignItems:"center",flexWrap:"wrap"}}>
-          <div style={{display:"flex",background:"rgba(255,255,255,0.08)",borderRadius:"8px",padding:"3px"}}>
-            {PERIODS.map(({key,label})=>(
-              <button key={key} onClick={()=>setPeriod(key)} style={{padding:"0.3rem 0.75rem",borderRadius:"6px",border:"none",cursor:"pointer",fontWeight:700,fontSize:"0.72rem",background:period===key?C.teal:"transparent",color:period===key?"#FFF":"#94A3B8",transition:"all 0.15s"}}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <button onClick={exportExcel} disabled={!kpis||exporting} style={{padding:"0.38rem 0.9rem",borderRadius:"6px",border:"none",cursor:kpis?"pointer":"not-allowed",fontWeight:700,fontSize:"0.75rem",background:kpis?"#16A34A":"rgba(255,255,255,0.1)",color:"#FFF",display:"flex",alignItems:"center",gap:"5px",opacity:kpis?1:0.5}}>
-            <DownloadIcon size={13} color="#FFF"/>{exporting?"Exporting…":"Export Excel"}
-          </button>
-        </div>
-      </div>
-
-      <div style={{padding:"1.25rem 1.75rem",maxWidth:"1400px",margin:"0 auto"}}>
-
-        {/* KPIs */}
-        <div style={{fontSize:"0.62rem",fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"0.6rem"}}>
-          Business Performance
-          {(period==="mtd"||period==="ytd")&&<span style={{marginLeft:"0.75rem",fontSize:"0.6rem",color:C.teal,textTransform:"none",letterSpacing:0}}>· Cumulative totals for period</span>}
-        </div>
-        <div style={{display:"flex",gap:"0.85rem",flexWrap:"wrap",marginBottom:"0.85rem"}}>
-          {kpis&&<>
-            <KpiCard label="Sales Revenue" ty={kpis.rev_ty} ly={kpis.rev_ly} Icon={DollarIcon}  fmt="currency"/>
-            <KpiCard label="Units Sold"    ty={units.ty}    ly={units.ly}    Icon={PackageIcon} fmt="number" note="⚑ Top 100 SKUs · ~28% of total revenue"/>
-            <KpiCard label="Orders"        ty={kpis.ord_ty} ly={kpis.ord_ly} Icon={CartIcon}    fmt="number" sub={`AOV: ${fmtR(aov_ty)}  ·  LY: ${fmtR(aov_ly)}`}/>
-            <KpiCard label="Stock Value"   ty={kpis.stock_ty} ly={kpis.stock_ly} Icon={ArchiveIcon} fmt="currency" note="Warehouse snapshot — latest available"/>
-          </>}
-        </div>
-
-        {/* Stock DC bars */}
-        {kpis&&kpis.stock_ty>0&&(
-          <div style={{background:C.card,borderRadius:"8px",border:`1px solid ${C.border}`,padding:"0.85rem 1.25rem",marginBottom:"1.25rem",display:"flex",gap:"2rem",flexWrap:"wrap",alignItems:"center"}}>
-            <div style={{fontSize:"0.62rem",fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.08em",minWidth:"70px"}}>Stock by DC</div>
-            {[["Johannesburg",kpis.jhb],["Durban",kpis.dbn],["Cape Town",kpis.cpt]].map(([label,val])=>(
-              <div key={label} style={{flex:1,minWidth:"140px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:"0.25rem"}}>
-                  <span style={{fontSize:"0.68rem",color:C.muted,fontWeight:600}}>{label}</span>
-                  <span style={{fontSize:"0.85rem",fontWeight:800,color:C.text}}>{fmtR(val)}</span>
-                </div>
-                <div style={{height:"4px",background:"#EEF2F7",borderRadius:"2px",overflow:"hidden"}}>
-                  <div style={{height:"100%",background:C.teal,width:`${kpis.stock_ty?(val/kpis.stock_ty*100):0}%`}}/>
-                </div>
-                <div style={{fontSize:"0.62rem",color:C.faint,marginTop:"0.2rem"}}>{kpis.stock_ty?(val/kpis.stock_ty*100).toFixed(0):0}% of total</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Channel table */}
-        {data.site&&(
-          <div style={{background:C.card,borderRadius:"8px",border:`1px solid ${C.border}`,overflow:"hidden",marginBottom:"1.25rem"}}>
-            <div style={{padding:"0.85rem 1.25rem",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{fontSize:"0.62rem",fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.1em"}}>Performance by Channel</div>
-              {(period==="mtd"||period==="ytd")&&<div style={{fontSize:"0.65rem",color:C.teal,fontWeight:600}}>{dates.length} trading days in period</div>}
-            </div>
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse"}}>
-                <thead><tr style={{borderBottom:`1px solid ${C.border}`}}>
-                  <TH label="Channel" align="left"/>
-                  <TH label="Revenue TY"/><TH label="Revenue LY"/><TH label="vs LY"/>
-                  <TH label="Orders TY"/><TH label="Orders LY"/><TH label="vs LY"/>
-                </tr></thead>
-                <tbody>
-                  {kpis&&<CRow row={{site:"TOTAL",rev_ty:kpis.rev_ty,rev_ly:kpis.rev_ly,ord_ty:kpis.ord_ty,ord_ly:kpis.ord_ly}} variant="total"/>}
-                  <tr><td colSpan={7} style={{padding:"0.28rem 1rem",background:"#EFF6FF",fontSize:"0.58rem",fontWeight:700,color:"#2563EB",textTransform:"uppercase",letterSpacing:"0.1em"}}>D2E — Employee Shops</td></tr>
-                  {d2eRows.map(r=><CRow key={r.site} row={r}/>)}
-                  {channels.d2eSub&&<CRow row={{site:"D2E Subtotal",...channels.d2eSub}} variant="sub"/>}
-                  {d2cRows.length>0&&<>
-                    <tr><td colSpan={7} style={{padding:"0.28rem 1rem",background:"#F0FDF4",fontSize:"0.58rem",fontWeight:700,color:"#16A34A",textTransform:"uppercase",letterSpacing:"0.1em"}}>D2C — Consumer (Grocery Club)</td></tr>
-                    {d2cRows.map(r=><CRow key={r.site} row={r}/>)}
-                    {channels.d2cSub&&<CRow row={{site:"D2C Subtotal",...channels.d2cSub}} variant="sub"/>}
-                  </>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Items table */}
-        {data.items&&(
-          <div style={{background:C.card,borderRadius:"8px",border:`1px solid ${C.border}`,overflow:"hidden",marginBottom:"1.25rem"}}>
-            <div style={{padding:"0.85rem 1.25rem",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div>
-                <div style={{fontSize:"0.62rem",fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.1em"}}>Top 100 Items</div>
-                <div style={{fontSize:"0.68rem",color:C.faint,marginTop:"2px"}}>Click any metric column to sort</div>
-              </div>
-              <div style={{fontSize:"0.68rem",color:C.faint}}>{items.filter(r=>r.rev_ty>0).length} items active in period</div>
-            </div>
-            <div style={{overflowX:"auto"}}>
-              <div style={{maxHeight:"520px",overflowY:"auto"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
-                  <colgroup>
-                    <col style={{width:"30%"}}/><col style={{width:"9%"}}/>
-                    <col style={{width:"10%"}}/><col style={{width:"10%"}}/><col style={{width:"9.5%"}}/>
-                    <col style={{width:"9%"}}/><col style={{width:"9%"}}/><col style={{width:"9.5%"}}/>
-                  </colgroup>
-                  <thead style={{position:"sticky",top:0,zIndex:2}}>
-                    <tr style={{borderBottom:`1px solid ${C.border}`}}>
-                      <TH label="Product" align="left"/><TH label="Brand" align="left"/>
-                      <TH label="Revenue TY" k="rev_ty"/><TH label="Revenue LY" k="rev_ly"/><TH label="Rev vs LY" k="rev_pct"/>
-                      <TH label="Units TY" k="units_ty"/><TH label="Units LY" k="units_ly"/><TH label="Units vs LY" k="units_pct"/>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item,i)=>(
-                      <tr key={item.id} style={{background:i%2===0?C.stripe:C.card,borderBottom:`1px solid ${C.border}`}}>
-                        <td style={{padding:"0.48rem 1rem",fontSize:"0.75rem",color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.name}>{item.name}</td>
-                        <td style={{padding:"0.48rem 0.75rem",fontSize:"0.7rem",color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.brand}</td>
-                        <td style={{padding:"0.48rem 0.75rem",textAlign:"right",fontSize:"0.76rem",color:C.text,fontWeight:600}}>{fmtR(item.rev_ty)}</td>
-                        <td style={{padding:"0.48rem 0.75rem",textAlign:"right",fontSize:"0.73rem",color:C.muted}}>{fmtR(item.rev_ly)}</td>
-                        <td style={{padding:"0.48rem 0.75rem",textAlign:"right",fontSize:"0.76rem",fontWeight:700,color:pColor(item.rev_pct)}}>{fmtPct(item.rev_pct)}</td>
-                        <td style={{padding:"0.48rem 0.75rem",textAlign:"right",fontSize:"0.76rem",color:C.text}}>{fmtN(item.units_ty)}</td>
-                        <td style={{padding:"0.48rem 0.75rem",textAlign:"right",fontSize:"0.73rem",color:C.muted}}>{fmtN(item.units_ly)}</td>
-                        <td style={{padding:"0.48rem 0.75rem",textAlign:"right",fontSize:"0.76rem",fontWeight:700,color:pColor(item.units_pct)}}>{fmtPct(item.units_pct)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div style={{padding:"0.7rem 1rem",background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:"8px",fontSize:"0.7rem",color:"#92400E"}}>
-          <strong>Data notes:</strong> Units are top 100 SKUs only (~28.5% of total revenue). Stock is a warehouse value snapshot. All figures in ZAR vs same period last year.
-        </div>
-      </div>
-    </div>
-  );
+const fmtR  = v => 'R' + Math.round(v||0).toLocaleString('en-ZA');
+const fmtN  = v => Math.round(v||0).toLocaleString('en-ZA');
+const fmtP  = v => v == null ? '—' : (v>=0?'+':'')+v.toFixed(1)+'%';
+const pCls  = v => v == null ? 'neu' : v>0 ? 'pos' : v<0 ? 'neg' : 'neu';
+function pct(ty, ly) { return (!ly||ly===0) ? (ty>0?null:0) : (ty/ly-1)*100; }
+function mLbl(ym) {
+  const [,m] = ym.split('-');
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1] + ' ' + ym.slice(0,4);
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+function loadCSV(url) {
+  return new Promise((res, rej) => {
+    Papa.parse(url, {
+      download: true, header: true, dynamicTyping: true, skipEmptyLines: true,
+      complete: r => res(r.data),
+      error:   e => rej(new Error('Failed to load: ' + url + ' — ' + e.message))
+    });
+  });
+}
+
+function setMsg(t) { document.getElementById('loading-msg').textContent = t; }
+
+// ── Dashboard load ─────────────────────────────────────────────────────────
+async function loadDashboard() {
+  let totalRaw, channelRaw, itemRaw;
+  try {
+    setMsg('Loading totals…');
+    totalRaw = await loadCSV(CSV.total);
+    setMsg('Loading channels…');
+    channelRaw = await loadCSV(CSV.channels);
+    setMsg('Loading items (this may take a moment)…');
+    itemRaw = await loadCSV(CSV.items);
+  } catch(e) {
+    document.getElementById('loading-screen').innerHTML =
+      `<div style="color:#fff;text-align:center;padding:40px">
+        <h2 style="margin-bottom:12px">Could not load data</h2>
+        <p style="opacity:.7">${e.message}</p>
+        <p style="opacity:.5;margin-top:8px;font-size:11px">
+          Make sure total.csv, channels.csv and items.csv are in the same repo/folder as index.html.
+        </p>
+      </div>`;
+    return;
+  }
+
+  setMsg('Building dashboard…');
+
+  // ── Active date range ─────────────────────────────────────────────────
+  const activeTot = totalRaw.filter(r => (r.revenue_this_year||0) > 0 || (r.orders_this_year||0) > 0);
+  const allDates  = activeTot.map(r => r.date).sort();
+  const latest    = allDates[allDates.length-1];
+  const [ly, lm]  = latest.split('-').map(Number);
+  const mtdStart  = `${ly}-${String(lm).padStart(2,'0')}-01`;
+
+  // ── Header ───────────────────────────────────────────────────────────
+  document.getElementById('hdr-latest-date').textContent = latest;
+  document.getElementById('hdr-mtd-range').textContent   =
+    `1–${latest.slice(8)} ${mLbl(latest.slice(0,7))}`;
+  document.getElementById('day-band').textContent =
+    `◉  Latest Day: ${latest}  vs  same day prior year`;
+  document.getElementById('mtd-band').textContent =
+    `◉  Month to Date: ${mtdStart} to ${latest}  vs  same period prior year`;
+
+  // ── Totals ───────────────────────────────────────────────────────────
+  const dayRow  = totalRaw.find(r => r.date === latest) || {};
+  const mtdRows = totalRaw.filter(r => r.date >= mtdStart && r.date <= latest);
+  function sum(rows, f) { return rows.reduce((s,r) => s+(r[f]||0), 0); }
+  const mRTY = sum(mtdRows,'revenue_this_year'),   mRLY = sum(mtdRows,'revenue_last_year');
+  const mOTY = sum(mtdRows,'orders_this_year'),    mOLY = sum(mtdRows,'orders_last_year');
+  const mUTY = sum(mtdRows,'units_sold_this_year'),mULY = sum(mtdRows,'units_sold_last_year');
+
+  // ── KPI render ────────────────────────────────────────────────────────
+  function kpiCard(lbl, ty, ly, fmt) {
+    const p = pct(ty,ly), v = ty-ly;
+    return `<div class="kpi-card">
+      <div class="kpi-label">${lbl}</div>
+      <div class="kpi-value">${fmt(ty)}</div>
+      <div class="kpi-ly">vs LY: ${fmt(ly)}</div>
+      <div class="kpi-footer">
+        <span class="kpi-var ${pCls(p)}">${p===null?'NEW':fmtP(p)}</span>
+        <span class="kpi-var-label">&nbsp;|&nbsp;Var: ${fmt(v)}</span>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('day-kpis').innerHTML =
+    kpiCard('Revenue (ZAR)', dayRow.revenue_this_year||0, dayRow.revenue_last_year||0, fmtR) +
+    kpiCard('Orders',        dayRow.orders_this_year||0,  dayRow.orders_last_year||0,  fmtN) +
+    kpiCard('Units Sold',    dayRow.units_sold_this_year||0, dayRow.units_sold_last_year||0, fmtN);
+
+  document.getElementById('mtd-kpis').innerHTML =
+    kpiCard('Revenue (ZAR)', mRTY, mRLY, fmtR) +
+    kpiCard('Orders',        mOTY, mOLY, fmtN) +
+    kpiCard('Units Sold',    mUTY, mULY, fmtN);
+
+  // ── Stock ─────────────────────────────────────────────────────────────
+  document.getElementById('stock-cards').innerHTML = `
+    <div class="stock-card">
+      <div class="stock-label">JHB</div>
+      <div class="stock-value">${fmtR(dayRow.stock_value_jhb_this_year)}</div>
+      <div class="stock-sub">vs LY: ${fmtR(dayRow.stock_value_jhb_last_year)}</div>
+    </div>
+    <div class="stock-card">
+      <div class="stock-label">DBN</div>
+      <div class="stock-value">${fmtR(dayRow.stock_value_dbn_this_year)}</div>
+      <div class="stock-sub">vs LY: ${fmtR(dayRow.stock_value_dbn_last_year)}</div>
+    </div>
+    <div class="stock-card">
+      <div class="stock-label">CPT</div>
+      <div class="stock-value">${fmtR(dayRow.stock_value_cpt_this_year)}</div>
+      <div class="stock-sub">vs LY: ${fmtR(dayRow.stock_value_cpt_last_year)}</div>
+    </div>
+    <div class="stock-card total-card">
+      <div class="stock-label">Total Stock on Hand</div>
+      <div class="stock-value">${fmtR(dayRow.stock_value_total_this_year)}</div>
+      <div class="stock-sub">vs LY: ${fmtR(dayRow.stock_value_total_last_year)}</div>
+    </div>`;
+
+  // ── 6-month trend chart ───────────────────────────────────────────────
+  const monthly = {};
+  activeTot.forEach(r => {
+    const ym = r.date.slice(0,7);
+    if (!monthly[ym]) monthly[ym] = {ty:0,ly:0};
+    monthly[ym].ty += r.revenue_this_year||0;
+    monthly[ym].ly += r.revenue_last_year||0;
+  });
+  const months = Object.keys(monthly).sort().slice(-7);
+  new Chart(document.getElementById('trend-chart'), {
+    type: 'bar',
+    data: {
+      labels: months.map(mLbl),
+      datasets: [
+        { label:'TY', data: months.map(m=>Math.round(monthly[m].ty)), backgroundColor:'#0E7C86', borderRadius:3, barPercentage:.6 },
+        { label:'LY', data: months.map(m=>Math.round(monthly[m].ly)), backgroundColor:'#CBD5E0', borderRadius:3, barPercentage:.6 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins: {
+        legend:{ position:'top', labels:{ font:{size:10}, boxWidth:10 } },
+        tooltip:{ callbacks:{ label: c => ' '+fmtR(c.raw) } }
+      },
+      scales: {
+        x:{ grid:{display:false}, ticks:{font:{size:9}} },
+        y:{ ticks:{ callback: v=>'R'+Math.round(v/1000)+'k', font:{size:9} }, grid:{color:'#EEF0F4'} }
+      }
+    }
+  });
+
+  // ── Segment split ─────────────────────────────────────────────────────
+  const mtdCh = channelRaw.filter(r => r.date >= mtdStart && r.date <= latest);
+  const sAgg  = { D2E:{rt:0,rl:0,ot:0,ol:0,ut:0,ul:0}, D2C:{rt:0,rl:0,ot:0,ol:0,ut:0,ul:0} };
+  mtdCh.forEach(r => {
+    const s = segOf(r.site_name);
+    if (s==='D2E'||s==='D2C') {
+      sAgg[s].rt+=r.revenue_this_year||0; sAgg[s].rl+=r.revenue_last_year||0;
+      sAgg[s].ot+=r.orders_this_year||0;  sAgg[s].ol+=r.orders_last_year||0;
+      sAgg[s].ut+=r.units_sold_this_year||0; sAgg[s].ul+=r.units_sold_last_year||0;
+    }
+  });
+  const sTot = {
+    rt:sAgg.D2E.rt+sAgg.D2C.rt, rl:sAgg.D2E.rl+sAgg.D2C.rl,
+    ot:sAgg.D2E.ot+sAgg.D2C.ot, ol:sAgg.D2E.ol+sAgg.D2C.ol,
+    ut:sAgg.D2E.ut+sAgg.D2C.ut, ul:sAgg.D2E.ul+sAgg.D2C.ul,
+  };
+
+  function segCard(lbl, cls, d) {
+    const rows = [
+      ['Revenue', fmtR(d.rt), pct(d.rt,d.rl)],
+      ['Orders',  fmtN(d.ot), pct(d.ot,d.ol)],
+      ['Units',   fmtN(d.ut), pct(d.ut,d.ul)],
+    ];
+    return `<div class="seg-card">
+      <div class="seg-head ${cls}">${lbl}</div>
+      <div class="seg-body">
+        ${rows.map(([m,v,p])=>`
+          <div class="seg-row">
+            <span class="seg-metric">${m}</span>
+            <span class="seg-vals">
+              <span class="seg-ty">${v}</span>
+              <span class="seg-pct ${pCls(p)}">${p===null?'NEW':fmtP(p)}</span>
+            </span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('seg-split').innerHTML =
+    '<div class="seg-grid">' +
+    segCard('D2E — Staff Benefit Shops','d2e',sAgg.D2E) +
+    segCard('D2C — Grocery Club','d2c',sAgg.D2C) +
+    segCard('Total Pantry Club','total',sTot) +
+    '</div>';
+
+  // ── Channel table ─────────────────────────────────────────────────────
+  const chAgg = {};
+  mtdCh.forEach(r => {
+    const nm = r.site_name;
+    if (!chAgg[nm]) chAgg[nm]={seg:segOf(nm),rt:0,rl:0,ot:0,ol:0,ut:0,ul:0};
+    chAgg[nm].rt+=r.revenue_this_year||0; chAgg[nm].rl+=r.revenue_last_year||0;
+    chAgg[nm].ot+=r.orders_this_year||0;  chAgg[nm].ol+=r.orders_last_year||0;
+    chAgg[nm].ut+=r.units_sold_this_year||0; chAgg[nm].ul+=r.units_sold_last_year||0;
+  });
+  const segOrd = {D2E:0,D2C:1,Other:2};
+  const chSort = Object.entries(chAgg).sort((a,b)=>segOrd[a[1].seg]-segOrd[b[1].seg]||b[1].rt-a[1].rt);
+
+  function badge(s) {
+    if(s==='D2E') return '<span class="badge d2e">D2E</span>';
+    if(s==='D2C') return '<span class="badge d2c">D2C</span>';
+    return '<span class="badge unc">?</span>';
+  }
+
+  let chHtml = `<thead><tr>
+    <th>Channel</th>
+    <th>Rev TY</th><th>Rev LY</th><th>Rev %</th>
+    <th>Orders TY</th><th>Orders LY</th><th>Ord %</th>
+    <th>Units TY</th><th>Units LY</th><th>Units %</th>
+  </tr></thead><tbody>`;
+
+  let prevSeg = null;
+  chSort.forEach(([nm, d]) => {
+    if (d.seg !== prevSeg) {
+      const lbl = d.seg==='D2E' ? '▸  D2E — STAFF BENEFIT SHOPS' :
+                  d.seg==='D2C' ? '▸  D2C — DIRECT TO CONSUMER'  : '▸  UNCATEGORISED CHANNELS';
+      const cls = d.seg==='D2E' ? '' : d.seg==='D2C' ? 'd2c' : 'other';
+      chHtml += `<tr class="sub-head ${cls}"><td colspan="10">${lbl}</td></tr>`;
+      prevSeg = d.seg;
+    }
+    const rp=pct(d.rt,d.rl), op=pct(d.ot,d.ol), up=pct(d.ut,d.ul);
+    const isNew = d.rl===0 && d.rt>0;
+    chHtml += `<tr>
+      <td>${nm}${badge(d.seg)}</td>
+      <td>${fmtR(d.rt)}</td><td>${fmtR(d.rl)}</td>
+      <td class="${pCls(rp)}">${isNew?'<span class="badge new">New</span>':fmtP(rp)}</td>
+      <td>${fmtN(d.ot)}</td><td>${fmtN(d.ol)}</td>
+      <td class="${pCls(op)}">${isNew?'—':fmtP(op)}</td>
+      <td>${fmtN(d.ut)}</td><td>${fmtN(d.ul)}</td>
+      <td class="${pCls(up)}">${isNew?'—':fmtP(up)}</td>
+    </tr>`;
+  });
+  // Totals row
+  const rp=pct(mRTY,mRLY), op=pct(mOTY,mOLY), up=pct(mUTY,mULY);
+  chHtml += `<tr class="total-row">
+    <td>TOTAL PANTRY CLUB</td>
+    <td>${fmtR(mRTY)}</td><td>${fmtR(mRLY)}</td><td class="${pCls(rp)}">${fmtP(rp)}</td>
+    <td>${fmtN(mOTY)}</td><td>${fmtN(mOLY)}</td><td class="${pCls(op)}">${fmtP(op)}</td>
+    <td>${fmtN(mUTY)}</td><td>${fmtN(mULY)}</td><td class="${pCls(up)}">${fmtP(up)}</td>
+  </tr></tbody>`;
+  document.getElementById('channel-table').innerHTML = chHtml;
+
+  // ── Brand + item aggregation ──────────────────────────────────────────
+  const mtdIt = itemRaw.filter(r => r.date >= mtdStart && r.date <= latest);
+  const bAgg={}, iAgg={};
+  mtdIt.forEach(r => {
+    const b = r.brand||'Unknown';
+    if(!bAgg[b]) bAgg[b]={rt:0,rl:0,ut:0,ul:0};
+    bAgg[b].rt+=r.revenue_this_year||0; bAgg[b].rl+=r.revenue_last_year||0;
+    bAgg[b].ut+=r.units_sold_this_year||0; bAgg[b].ul+=r.units_sold_last_year||0;
+    const k=r.product_id;
+    if(!iAgg[k]) iAgg[k]={name:r.product_name,brand:b,rt:0,rl:0,ut:0,ul:0};
+    iAgg[k].rt+=r.revenue_this_year||0; iAgg[k].rl+=r.revenue_last_year||0;
+    iAgg[k].ut+=r.units_sold_this_year||0; iAgg[k].ul+=r.units_sold_last_year||0;
+  });
+
+  const itRevTY = Object.values(bAgg).reduce((s,v)=>s+v.rt,0);
+  const itUniTY = Object.values(bAgg).reduce((s,v)=>s+v.ut,0);
+  const covR = mRTY>0 ? (itRevTY/mRTY*100).toFixed(0) : '—';
+  const covU = mUTY>0 ? (itUniTY/mUTY*100).toFixed(0) : '—';
+  document.getElementById('coverage-pct').textContent      = covR;
+  document.getElementById('coverage-note-pct').textContent = covR;
+  document.getElementById('coverage-note-uni').textContent = covU;
+
+  // ── Brand table ───────────────────────────────────────────────────────
+  const topB = Object.entries(bAgg).sort((a,b)=>b[1].rt-a[1].rt).slice(0,20);
+  let bHtml = `<thead><tr><th>#</th><th>Brand</th><th>Rev TY</th><th>Rev %</th><th>Units TY</th><th>Units %</th></tr></thead><tbody>`;
+  topB.forEach(([br,d],i) => {
+    const rp=pct(d.rt,d.rl), up=pct(d.ut,d.ul);
+    bHtml += `<tr>
+      <td class="rank">${i+1}</td>
+      <td style="text-align:left;padding-left:10px">${br}</td>
+      <td>${fmtR(d.rt)}</td>
+      <td class="${pCls(rp)}">${rp===null?'New':fmtP(rp)}</td>
+      <td>${fmtN(d.ut)}</td>
+      <td class="${pCls(up)}">${up===null?'New':fmtP(up)}</td>
+    </tr>`;
+  });
+  document.getElementById('brand-table').innerHTML = bHtml+'</tbody>';
+
+  // ── Items table ───────────────────────────────────────────────────────
+  const topI = Object.entries(iAgg).sort((a,b)=>b[1].rt-a[1].rt).slice(0,25);
+  let iHtml = `<thead><tr><th>#</th><th>Item</th><th>Brand</th><th>Rev TY</th><th>Rev %</th><th>Units TY</th></tr></thead><tbody>`;
+  topI.forEach(([,d],i) => {
+    const rp=pct(d.rt,d.rl);
+    const nm = d.name && d.name.length>45 ? d.name.slice(0,42)+'…' : (d.name||'—');
+    iHtml += `<tr>
+      <td class="rank">${i+1}</td>
+      <td style="text-align:left;padding-left:10px;font-size:11px" title="${d.name||''}">${nm}</td>
+      <td style="text-align:left;font-size:11px;color:var(--muted)">${d.brand||'—'}</td>
+      <td>${fmtR(d.rt)}</td>
+      <td class="${pCls(rp)}">${rp===null?'New':fmtP(rp)}</td>
+      <td>${fmtN(d.ut)}</td>
+    </tr>`;
+  });
+  document.getElementById('items-table').innerHTML = iHtml+'</tbody>';
+
+  // ── Data notes ────────────────────────────────────────────────────────
+  document.getElementById('data-notes').innerHTML =
+    `<strong>⚠ Data notes:</strong> ` +
+    `Channels <em>Pepsico Partners, Sodastream, Van de liore</em> are not in the confirmed 13-channel list — flagged Uncategorised. ` +
+    `Channels with no prior-year sales are flagged <span class="badge new">New</span>. ` +
+    `Margin / COG data not included (methodology pending Commercial Director sign-off). ` +
+    `Brand &amp; item data covers top 1 000 items only (~${covR}% of MTD revenue). ` +
+    `Dashboard auto-detects the latest active date on each load. ` +
+    `Stock values are as at ${latest}.`;
+
+  // ── Show dashboard ────────────────────────────────────────────────────
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
 </script>
 </body>
 </html>
